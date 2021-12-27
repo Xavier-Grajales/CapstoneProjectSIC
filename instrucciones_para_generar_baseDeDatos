@@ -1,0 +1,36 @@
+Es necesario crear una base de datos para la temperatura por lo que nos guiaremos de los siguientes pasos:
+
+1. Ejecutar mysql
+
+sudo mysql
+
+2. Crear base de datos
+
+CREATE DATABASE MonitoreoTerceraEdad;
+
+3. Seleccionar base de datos a utilizar.
+
+use MonitoreoTerceraEdad;
+
+
+4. Crear tabla, contendrá ID auto indexado, fecha automática y temperatura 
+
+CREATE TABLE Temperaturas (id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY, fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP, temp FLOAT(4,2) NOT NULL);
+
+5. Para que todo esto funcione, si es la primera vez que lo ejecutas es necesario ejecutar el siguiente comando, si no unicamente ejecuta el último.
+
+select user,host, plugin from user;
+
+ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'Tu contraseña';
+
+Como la interfaz que utiizaremos es grafana, dirigete a: localhost:3000
+
+1. Dirigete a la sección de configuraciones.
+2. Selecciona DataSources.
+3. Busca mysql
+4. llena los datos que se te solicitan.
+5. Dirigete a dashboards.
+6. Genera la tu nueva gráfica.
+7. Selecciona los datos que deseas gráficar.
+
+
