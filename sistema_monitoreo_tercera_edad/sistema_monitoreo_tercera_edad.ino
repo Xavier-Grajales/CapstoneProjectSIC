@@ -16,11 +16,10 @@
     SensorMLX90614------PinESP32CAM
     Vin-----------------3.3v
     GND-----------------GND
-    SCL-----------------GPIO15
-    SDA-----------------GPIO14
+    SCL-----------------GPIO22
+    SDA-----------------GPIO21
 */
-#define I2C_SDA 14
-#define I2C_SCL 15
+
 //---------------------------Conectividad---------------------------------------------------
 //Datos de WiFi
 const char* ssid = "ARRIS-DE42" ;// Aquí debes poner el nombre de tu red
@@ -35,8 +34,7 @@ WiFiClient espClient; // Este objeto maneja los datos de conexion WiFi
 PubSubClient client(espClient); // Este objeto maneja los datos de conexion al broker
 
 //-------------------Data sensors-----------------------------------------------------------------
-/*creamos la instancia i2c*/
-TwoWire I2CSensors = TwoWire(0);
+//Declaración del objeto.
 Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 //Variables sensor MLX90614
 float TempMed;
@@ -59,7 +57,6 @@ void setup() {
  //inicializamos al sensor mlx90614
  mlx.begin();
  /*Inicializamos los pines del ESP32CAM como SDA y SCL*/
- I2CSensors.begin(I2C_SDA, I2C_SCL, 100000);
  //declaración de los pines que nos permitiran declarar la conectividad a internet.
  pinMode (flashLedPin, OUTPUT);
  pinMode (statusLedPin, OUTPUT);
@@ -174,13 +171,6 @@ void reconnect() {
 /*--------------------------------Sección de funciones de los sensores--------------------------------------------------------------*/
 /*Generamos las funciones de cada sensor para tener un código más ordenado */
 void MLX90614(){
-  /*if((timeLast_sensors-PreviousTime_MLX90614)>=Time_MLX90614){
-    PreviousTime_MLX90614=timeLast_sensors;
-    TempMed=mlx.readObjectTempC();
-    TempReal=TempMed+4.38;
-    Serial.print("*C\tObject = "); Serial.print(TempReal); Serial.println("*C");
-    Serial.println();
-  }*/
    if (timeNow - timeLast > wait) { // Manda un mensaje por MQTT cada cinco segundos
     timeLast = timeNow; // Actualización de seguimiento de tiempo
 
