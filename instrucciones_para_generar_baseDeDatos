@@ -6,22 +6,26 @@ sudo mysql
 
 2. Crear base de datos
 
-CREATE DATABASE MonitoreoTerceraEdad;
+CREATE DATABASE Casaderetiro;
 
 3. Seleccionar base de datos a utilizar.
 
-use MonitoreoTerceraEdad;
+use CasadeRetiro;
 
 
 4. Crear tabla, contendrá ID auto indexado, fecha automática y temperatura 
 
-CREATE TABLE Temperaturas (id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY, fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP, temp FLOAT(4,2) NOT NULL);
+CREATE TABLE PACIENTES(NOMBRE VARCHAR(30), TEMPERATURA FLOAT, SPO2 INT, BPM INT);
 
 5. Para que todo esto funcione, si es la primera vez que lo ejecutas es necesario ejecutar el siguiente comando, si no unicamente ejecuta el último.
 
 select user,host, plugin from user;
 
 ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'Tu contraseña';
+
+Para observar que los datos se hayan guardado correctamente se ejecuta el comando
+
+select * from  pacientes;
 
 Como la interfaz que utiizaremos es grafana, dirigete a: localhost:3000
 
