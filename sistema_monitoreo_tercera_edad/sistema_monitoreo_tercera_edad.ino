@@ -1,8 +1,4 @@
 /* Fecha: 21 de diciembre de 2021.
- * 
-
- * 
- * 
  
  */
 
@@ -12,6 +8,12 @@
 #include <WiFi.h>  // Biblioteca para el control de WiFi
 #include <PubSubClient.h> //Biblioteca para conexion MQTT
 #include <DFRobot_MAX30102.h>
+#include <WiFiClientSecure.h>
+#include <UniversalTelegramBot.h>
+
+#define BOT_TOKEN "5000181782:AAFeV1qAA3S4TonoagO74pME4RwZi74ndXI" // se obtiene al momento de crear el chat bot en telegram
+const unsigned long BOT_MTBS = 1000; // mean time between scan messages
+
 /*Conexion ESP32 y sensores
     MLX90614            Esp32    |    MAX30102       ESP32
     Vin                 3.3v     |    Vin            3V3
@@ -22,8 +24,9 @@
 
 //---------------------------Conectividad---------------------------------------------------
 //Datos de WiFi
-const char* ssid = "Totalplay-559E" ;// Aquí debes poner el nombre de tu red
-const char* password = "559EB28CPBfPW9Vu";  // Aquí debes poner la contraseña de tu red
+
+const char* ssid = "*******" ;// Aquí debes poner el nombre de tu red
+const char* password = "******";  // Aquí debes poner la contraseña de tu red
 
 //Datos del broker MQTT
 const char* mqtt_server = "3.65.154.195"; // Si estas en una red local, coloca la IP asignada, en caso contrario, coloca la IP publica
@@ -40,6 +43,7 @@ DFRobot_MAX30102 particleSensor;  //reconocimiento de sensor
 //Variables sensor MLX90614
 float TempMed;
 float TempReal;
+
 // Variables sensor MAX30102
 int32_t SPO2; //SPO2
 int8_t SPO2Valid; //Flag to display if SPO2 calculation is valid
@@ -52,11 +56,15 @@ unsigned long timeNow_MAX;//Almacenaremos el tiempo en ms
 unsigned long PreviousTime_MLX90614=0;
 unsigned long PreviousTime_MAX30102=0;
 unsigned long timeLast_sensors;// Variable que nos permite controlar el tiempo de los sensores junto con previous
+
 /*Declaración de las variables que nos permiten determinar el tiempo de retardo para ejecutar 
 cada acción simulando un delay*/
+
 const int Time_MLX90614=5000;//Declaramos que la medición del sensor de temperatura se ejecute cada 15s
 const int Time_MAX30102=5000;//Declaramos que la medición del sensor de temperatura se ejecute cada 15s
+
 /*Variables de conectividad wifi*/
+
 int flashLedPin = 2;  // Para indicar el estatus de conexión
 int statusLedPin = 19; // Para ser controlado por MQTT
 unsigned long timeLast;// Variable de control de tiempo no bloqueante
@@ -64,13 +72,19 @@ unsigned long timeLast_MAX;// Variable de control de tiempo no bloqueante
 const int wait = 5000;  // Indica la espera cada 5 segundos para envío de mensajes MQTT
 const int wait_MAX = 5000;  // Indica la espera cada 5 segundos para envío de mensajes MQTT
 
+/*-----------Sección de telegram---------------------------------------------------*/
+WiFiClientSecure secured_client;
+UniversalTelegramBot bot(BOT_TOKEN, secured_client);
+unsigned long bot_lasttime; // last time messages' scan has been done
+/*-----------------Variables para comprobar status de telegram----------------*/
+int SPO2andBPMstatus=0;
+int temperaturaStatus=0;
+
 void setup() {
  Serial.begin(115200);
  //inicializamos al sensor mlx90614
  mlx.begin();
   //Init serial
-  Serial.begin(115200);
- 
   while (!particleSensor.begin()) {
     Serial.println("MAX30102 was not found");
     delay(1000);
@@ -123,21 +137,72 @@ void setup() {
   client.setServer(server, 1883); // Conectarse a la IP del broker en el puerto indicado
   client.setCallback(callback); // Activar función de CallBack, permite recibir mensajes MQTT y ejecutar funciones a partir de ellos
   delay(1500);  // Esta espera es preventiva, espera a la conexión para no perder información
+
+  /*-------------------------Sección conexión TELEGRAM setup----------------------------------*/
+  secured_client.setCACert(TELEGRAM_CERTIFICATE_ROOT); // Add root certificate for api.telegram.org
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.print(".");
+    delay(500);
+  }
+
+  Serial.print("Retrieving time: ");
+  configTime(0, 0, "pool.ntp.org"); // get UTC time via NTP
+  time_t now = time(nullptr);
+  while (now < 24 * 3600)
+  {
+    Serial.print(".");
+    delay(100);
+    now = time(nullptr);
+  }
+  Serial.println(now);
 }
 
 void loop() {
  timeLast_sensors=millis();
  timeNow = millis(); // Control de tiempo para esperas no bloqueantes
- MLX90614();//llamamos a la función del sensor de temperatura
  timeNow_MAX=millis();
- MAX30102();//llamamos a la función del sensor de oxigenacion
+ 
 /*---------------MQTT-----------------------------------------------------------------*/
  //Verificar siempre que haya conexión al broker
   if (!client.connected()) {
     reconnect();  // En caso de que no haya conexión, ejecutar la función de reconexión, definida despues del void setup ()
   }// fin del if (!client.connected())
   client.loop(); // Esta función es muy importante, ejecuta de manera no bloqueante las funciones necesarias para la comunicación con el broker
- 
+
+  /*-----------------Looop de conexión TELEGRAM--------------------------------------------------*/
+
+  
+  
+  if (millis() - bot_lasttime > BOT_MTBS)
+  {
+    int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+
+    while (numNewMessages)
+    {
+      Serial.println("got response");
+      handleNewMessages(numNewMessages);
+      numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+    }
+
+    bot_lasttime = millis();
+  }
+/*------------------------Rutina para llamar a las funciones de los sensores---------------------------------------------------*/
+int interruptor_sensores=0;
+if(temperaturaStatus==1){
+  interruptor_sensores=1;
+}
+if(SPO2andBPMstatus==1){
+  interruptor_sensores=2;
+}
+switch (interruptor_sensores) {
+  case 1:
+    MLX90614();
+    break;
+  case 2:
+    MAX30102();
+    break;
+}
 }
 /*------------------------------Sección de funciones de conectividad a MQTT------------------------------------------------------------*/
 // Función para reconectarse
@@ -280,11 +345,11 @@ void MLX90614(){
     dtostrf(TempReal, 1, 2, dataString);  // Esta es una función nativa de leguaje AVR que convierte un arreglo de caracteres en una variable String
     Serial.print("La temperarura es: "); // Se imprime en monitor solo para poder visualizar que el evento sucede
     Serial.println(dataString);
+    Serial.println();
+    delay(1000);
     client.publish("SignosVitales/Temperatura/CasaRetiro1", dataString); // Esta es la función que envía los datos por MQTT, especifica el tema y el valor. Es importante cambiar el tema para que sea unico SignosVitales/Temperatura/Temaconotronombre
   }// fin del if (timeNow - timeLast > wait)  
 }
-
-
 
 void MAX30102()
 {
@@ -310,4 +375,93 @@ void MAX30102()
   client.publish("SignosVitales/Oxigenacion/CasaRetiro1", dataStringspo2);
   client.publish("SignosVitales/bpm/CasaRetiro1", dataStringhb);
  }
+}
+
+/*---------------------Sección de envío de mensaje telegram--------------------------*/
+
+void handleNewMessages(int numNewMessages)
+{
+  Serial.print("handleNewMessages ");
+  Serial.println(numNewMessages);
+
+  for (int i = 0; i < numNewMessages; i++)
+  {
+    String chat_id = bot.messages[i].chat_id;
+    String text = bot.messages[i].text;
+
+    String from_name = bot.messages[i].from_name;
+    if (from_name == "")
+      from_name = "Guest";
+
+    if (text == "/TemperaturaON")
+    {
+      temperaturaStatus= 1;
+      Serial.print("temperaturaStatus= ");
+      Serial.println(temperaturaStatus);
+      bot.sendMessage(chat_id, "Temperatura is ON", "");
+    }
+
+    if (text == "/TemperaturaOFF")
+    {
+      temperaturaStatus= 0;
+      Serial.print("temperaturaStatus= ");
+      Serial.println(temperaturaStatus);
+      bot.sendMessage(chat_id, "Temperatura is OFF", "");
+    }
+
+    if (text == "/SPO2andBPMON")
+    {
+      SPO2andBPMstatus= 1;
+      Serial.print("SPO2andBPMstatus= ");
+      Serial.println(SPO2andBPMstatus);
+      bot.sendMessage(chat_id, "SPO2andBPMstatus is ON", "");
+    }
+    
+    if (text == "/SPO2andBPMOFF")
+    {
+      SPO2andBPMstatus= 0;
+      Serial.print("SPO2andBPMstatus= ");
+      Serial.println(SPO2andBPMstatus);
+      bot.sendMessage(chat_id, "SPO2andBPMstatus is OFF", "");
+    }
+
+    if (text == "/status")
+    {
+      if (temperaturaStatus==1)
+      {
+        bot.sendMessage(chat_id, "temperatura is ON", "");
+      }
+      else
+      {
+        bot.sendMessage(chat_id, "temperatura is OFF", "");
+      }
+      if (SPO2andBPMstatus==1)
+      {
+        bot.sendMessage(chat_id, "SPO2andBPM is ON", "");
+      }
+      else
+      {
+        bot.sendMessage(chat_id, "SPO2andBPM is OFF", "");
+      }
+    }
+
+    if (text == "/start")
+    {
+      String welcome = "Bienvenido a tu servicio de monitoreo de salud " + from_name + ".\n";
+      welcome += "Este servicio te pemitirá conocer tu Temperatura, SPO2 y BPM\n";
+      welcome += "Selecciona el texto en azul, segun sea el caso:\n";
+      welcome += "/TemperaturaON: Para visualizar tu temperatura\n";
+      welcome += "/TemperaturaOFF: Para dejar de tomar la temperatura\n";
+      welcome += "/SPO2andBPMON: Para visualizar la oxigenación y los latidos por minuto\n";
+      welcome += "/SPO2andBPMOFF: Para dejar de visualizar la oxigenación y los latidos por minuto\n";
+      welcome += "/status: Para conocer la función que tienes activa\n";
+      welcome += "Instrucciones de uso: \n";
+      welcome += "1. Elegir el signo vital a medir. \n";
+      welcome += "Para ello seleccione el comando /TemperaturaOn o /SPO2andBPMON segun sea el caso \n";
+      welcome += "Es necesario apagar la medicion seleccionada con el comando /TemperaturaOFF o /SPO2andBPMOFF segun sea el caso.\n";
+      welcome += "Una vez que ya no se requiera su uso (SOLO SE PUEDE REALIZAR UNA MEDICION A LA VEZ)\n";
+      welcome += "NOTA: EL ULTIMO VALOR MEDIDO POR LOS SENSORES SERÁ EL ALMACENADO\n";
+      bot.sendMessage(chat_id, welcome, "Markdown");
+    }
+  }
 }
