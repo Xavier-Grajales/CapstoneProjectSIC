@@ -1,6 +1,6 @@
 /* Fecha: 21 de diciembre de 2021.
  
- */
+*/
 
 /*Bibliotecas necesarias para la ejecución del programa*/
 #include <Wire.h>
@@ -25,8 +25,11 @@ const unsigned long BOT_MTBS = 1000; // mean time between scan messages
 //---------------------------Conectividad---------------------------------------------------
 //Datos de WiFi
 
-const char* ssid = "*******" ;// Aquí debes poner el nombre de tu red
-const char* password = "******";  // Aquí debes poner la contraseña de tu red
+const char* ssid = "MIRANDA" ;// Aquí debes poner el nombre de tu red
+const char* password = "369369-+0@@@@@";  // Aquí debes poner la contraseña de tu red
+
+/*const char* ssid = "Totalplay-559E" ;// Aquí debes poner el nombre de tu red
+const char* password = "559EB28CPBfPW9Vu";  // Aquí debes poner la contraseña de tu red*/
 
 //Datos del broker MQTT
 const char* mqtt_server = "3.65.154.195"; // Si estas en una red local, coloca la IP asignada, en caso contrario, coloca la IP publica
@@ -44,10 +47,14 @@ DFRobot_MAX30102 particleSensor;  //reconocimiento de sensor
 float TempMed;
 float TempReal;
 
-// Variables sensor MAX30102
+// Variables sensor MAX30102{
+const int error_ox=25;
+const int error_bpm=39;
 int32_t SPO2; //SPO2
+int32_t SPO2_real;
 int8_t SPO2Valid; //Flag to display if SPO2 calculation is valid
-int32_t heartRate; //Heart-rate
+int32_t heartRate; //Heart-rate{
+int32_t heartRate_real; 
 int8_t heartRateValid;
 
 /*Declaración de las variables que nos serviran como temporizadores*/
@@ -60,8 +67,8 @@ unsigned long timeLast_sensors;// Variable que nos permite controlar el tiempo d
 /*Declaración de las variables que nos permiten determinar el tiempo de retardo para ejecutar 
 cada acción simulando un delay*/
 
-const int Time_MLX90614=5000;//Declaramos que la medición del sensor de temperatura se ejecute cada 15s
-const int Time_MAX30102=5000;//Declaramos que la medición del sensor de temperatura se ejecute cada 15s
+const int Time_MLX90614=25000;//Declaramos que la medición del sensor de temperatura se ejecute cada 15s
+const int Time_MAX30102=25000;//Declaramos que la medición del sensor de temperatura se ejecute cada 15s
 
 /*Variables de conectividad wifi*/
 
@@ -337,10 +344,16 @@ void reconnect() {
 void MLX90614(){
    if (timeNow - timeLast > wait) { // Manda un mensaje por MQTT cada cinco segundos
     timeLast = timeNow; // Actualización de seguimiento de tiempo
-
+    float temp;
     //Lectura del sensor de temperatura mlx90614 sin contemplar el error
     TempMed=mlx.readObjectTempC();//Lectura del sensor
-    TempReal=TempMed+4.38;//lectura tomando en cuenta el error    
+    TempReal=TempMed+4.33;//lectura tomando en cuenta el error   
+    temp=TempMed+4.33;
+   Serial.print(temp);
+    if(TempReal<32 || TempReal>42.5){
+      TempReal=0; 
+    }
+    
     char dataString[8]; // Define una arreglo de caracteres para enviarlos por MQTT, especifica la longitud del mensaje en 8 caracteres
     dtostrf(TempReal, 1, 2, dataString);  // Esta es una función nativa de leguaje AVR que convierte un arreglo de caracteres en una variable String
     Serial.print("La temperarura es: "); // Se imprime en monitor solo para poder visualizar que el evento sucede
@@ -360,14 +373,16 @@ void MAX30102()
   char dataStringspo2[8];
   char dataStringhb[8];
   //Esta sección nos ayuda a evitar un poco de ruido del sensor MAX30102
-  if(SPO2<0){
-    SPO2=0;
-    }
-  if(heartRate<0){
-    heartRate=0;
-    }
-  dtostrf(SPO2, 1, 2, dataStringspo2);
-  dtostrf(heartRate, 1, 2, dataStringhb);
+  SPO2_real=SPO2+error_ox;
+  heartRate_real=heartRate-error_bpm;
+ // if(SPO2_real<0 || SPO2_real>100){
+  //  SPO2_real=0;
+   // }
+//  if(heartRate_real<30 || heartRate_real>250){
+  //   heartRate_real=0;
+    //}
+  dtostrf(SPO2_real, 1, 2, dataStringspo2);
+  dtostrf(heartRate_real, 1, 2, dataStringhb);
   Serial.print("SPO2: ");
   Serial.println(dataStringspo2);
   Serial.print("Bpm: ");
