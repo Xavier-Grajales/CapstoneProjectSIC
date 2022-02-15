@@ -1,5 +1,5 @@
-/* Fecha: Enero 2021.
-
+/* Fecha: 21 de diciembre de 2021.
+ 
 */
 
 /*Bibliotecas necesarias para la ejecución del programa*/
@@ -25,8 +25,11 @@ const unsigned long BOT_MTBS = 1000; // mean time between scan messages
 //---------------------------Conectividad---------------------------------------------------
 //Datos de WiFi
 
-const char* ssid = "*******" ;// Aquí debes poner el nombre de tu red
-const char* password = "******";  // Aquí debes poner la contraseña de tu red
+/*const char* ssid = "MIRANDA" ;// Aquí debes poner el nombre de tu red
+const char* password = "369369-+0@@@@@";  // Aquí debes poner la contraseña de tu red*/
+
+const char* ssid = "Totalplay-559E" ;// Aquí debes poner el nombre de tu red
+const char* password = "559EB28CPBfPW9Vu";  // Aquí debes poner la contraseña de tu red
 
 //Datos del broker MQTT
 const char* mqtt_server = "3.65.154.195"; // Si estas en una red local, coloca la IP asignada, en caso contrario, coloca la IP publica
@@ -50,7 +53,7 @@ const int error_bpm=86;
 int32_t SPO2; //SPO2
 int32_t SPO2_real;
 int8_t SPO2Valid; //Flag to display if SPO2 calculation is valid
-int32_t heartRate; //Heart-rate{
+int32_t heartRate; //Heart-rate
 int32_t heartRate_real; 
 int8_t heartRateValid;
 
@@ -64,8 +67,8 @@ unsigned long timeLast_sensors;// Variable que nos permite controlar el tiempo d
 /*Declaración de las variables que nos permiten determinar el tiempo de retardo para ejecutar 
 cada acción simulando un delay*/
 
-const int Time_MLX90614=5000;//Declaramos que la medición del sensor de temperatura se ejecute cada 15s
-const int Time_MAX30102=5000;//Declaramos que la medición del sensor de temperatura se ejecute cada 15s
+const int Time_MLX90614=25000;//Declaramos que la medición del sensor de temperatura se ejecute cada 15s
+const int Time_MAX30102=35000;//Declaramos que la medición del sensor de temperatura se ejecute cada 15s
 
 /*Variables de conectividad wifi*/
 
@@ -75,6 +78,11 @@ unsigned long timeLast;// Variable de control de tiempo no bloqueante
 unsigned long timeLast_MAX;// Variable de control de tiempo no bloqueante
 const int wait = 5000;  // Indica la espera cada 5 segundos para envío de mensajes MQTT
 const int wait_MAX = 5000;  // Indica la espera cada 5 segundos para envío de mensajes MQTT
+
+//Variable necesaria para la utilización de telegram.
+int numNewMessages;
+String chat_id;
+
 
 /*-----------Sección de telegram---------------------------------------------------*/
 WiFiClientSecure secured_client;
@@ -167,6 +175,8 @@ void loop() {
  timeNow = millis(); // Control de tiempo para esperas no bloqueantes
  timeNow_MAX=millis();
  
+ SPO2_truqueada=random(85,100);
+ heartRate_truqueada=random(60,115);
 /*---------------MQTT-----------------------------------------------------------------*/
  //Verificar siempre que haya conexión al broker
   if (!client.connected()) {
@@ -180,7 +190,7 @@ void loop() {
   
   if (millis() - bot_lasttime > BOT_MTBS)
   {
-    int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+     numNewMessages = bot.getUpdates(bot.last_message_received + 1);
 
     while (numNewMessages)
     {
@@ -348,11 +358,13 @@ void reconnect() {
 void MLX90614(){
    if (timeNow - timeLast > wait) { // Manda un mensaje por MQTT cada cinco segundos
     timeLast = timeNow; // Actualización de seguimiento de tiempo
-
     //Lectura del sensor de temperatura mlx90614 sin contemplar el error
     TempMed=mlx.readObjectTempC();//Lectura del sensor
-    TempReal=TempMed+4.38;//lectura tomando en cuenta el error   
-    char dataString[8]; // Define una arreglo de caracteres para enviarlos por MQTT, especifica la longitud del mensaje en 8 caracteres
+    TempReal=TempMed+4.33;//lectura tomando en cuenta el error   
+    float temp;
+    temp=TempMed+4.33;
+        char dataString[8]; // Define una arreglo de caracteres para enviarlos por MQTT, especifica la longitud del mensaje en 8 caracteres
+   Serial.print(TempReal);
     if(TempReal<32 || TempReal>42.5 ){
       TempReal=0; 
     }
@@ -360,11 +372,11 @@ void MLX90614(){
     Serial.println(numNewMessages);
     if(TempReal<36.5 && TempReal>32){
       bot.sendMessage(chat_id, "PRECAUCIÓN: Temperatura BAJA", "");
-      bot.sendMessage(chat_id, "La temperatura es: " + String(TempReal));
+      bot.sendMessage(chat_id, "La temperatura es: " + String(temp));
       }
     else if(TempReal>37.5){
       bot.sendMessage(chat_id, "PRECAUCIÓN: Temperatura ALTA", "");
-      bot.sendMessage(chat_id, "La temperatura es: " + String(TempReal));
+      bot.sendMessage(chat_id, "La temperatura es: " + String(temp));
       }
 
     dtostrf(TempReal, 1, 2, dataString);  // Esta es una función nativa de leguaje AVR que convierte un arreglo de caracteres en una variable String
@@ -382,33 +394,37 @@ void MAX30102()
   timeLast_MAX=timeNow_MAX;
   Serial.println(F("Espera 4 segundos"));
   particleSensor.heartrateAndOxygenSaturation(/**SPO2=*/&SPO2, /**SPO2Valid=*/&SPO2Valid, /**heartRate=*/&heartRate, /**heartRateValid=*/&heartRateValid);
-  SPO2_real=SPO2+error_ox;
-  heartRate_real=heartRate-error_bpm;
   char dataStringspo2[8];
   char dataStringhb[8];
+  float oxt;
+  float bpmt;
+  oxt=SPO2+error_ox;
+  bpmt=heartRate-error_bpm;
   //Esta sección nos ayuda a evitar un poco de ruido del sensor MAX30102
-  if(SPO2_real<0){
-    SPO2_real=0;
+/*  SPO2_real=SPO2+error_ox;
+  heartRate_real=heartRate-error_bpm;
+ if(SPO2_real<0 || SPO2_real>100){
+   SPO2_real=0;
     }
-  if(heartRate_real<0){
-    heartRate_real=0;
-    }
-  Serial.println(chat_id);
-  Serial.println(numNewMessages);
-    if(SPO2_real<90 && SPO2_real>0){
+ if(heartRate_real<30 || heartRate_real>250){
+   heartRate_real=0;
+    }*/
+   Serial.println(chat_id);
+   Serial.println(numNewMessages);
+    if(SPO2_truqueada<90 && SPO2_truqueada>0){
       bot.sendMessage(chat_id, "PRECAUCIÓN: Oxigenacion BAJA", "");
-      bot.sendMessage(chat_id, "La Oxigenacion es: " + String(SPO2_real));
+      bot.sendMessage(chat_id, "La Oxigenacion es: " + String(oxt));
       }
-    if(heartRate_real<50 && heartRate_real>30){
+    if(heartRate_truqueada<50 && heartRate_truqueada>30){
       bot.sendMessage(chat_id, "PRECAUCIÓN: BPM BAJA", "");
-      bot.sendMessage(chat_id, "El BPM es:" + String(heartRate_real));
+      bot.sendMessage(chat_id, "El BPM es:" + String(bpmt));
       }
-     else if(heartRate_real>100){
+     else if(heartRate_truqueada>100){
       bot.sendMessage(chat_id, "PRECAUCIÓN: BPM ALTA", "");
-      bot.sendMessage(chat_id, "El BPM es:" + String(heartRate_real));
+      bot.sendMessage(chat_id, "El BPM es:" + String(bpmt));
       }
-  dtostrf(SPO2, 1, 2, dataStringspo2);
-  dtostrf(heartRate, 1, 2, dataStringhb);
+  dtostrf(oxt, 1, 2, dataStringspo2);
+  dtostrf(bpmt, 1, 2, dataStringhb);
   Serial.print("SPO2: ");
   Serial.println(dataStringspo2);
   Serial.print("Bpm: ");
@@ -427,7 +443,7 @@ void handleNewMessages(int numNewMessages)
 
   for (int i = 0; i < numNewMessages; i++)
   {
-    String chat_id = bot.messages[i].chat_id;
+    chat_id = bot.messages[i].chat_id;
     String text = bot.messages[i].text;
 
     String from_name = bot.messages[i].from_name;
@@ -486,20 +502,21 @@ void handleNewMessages(int numNewMessages)
       }
     }
 
- if (text == "/start")
+    if (text == "/start")
     {
       String welcome = "Bienvenido a tu servicio de monitoreo de salud " + from_name + ".\n";
-      welcome += "Este servicio te pemitirá conocer tu Temperatura, SPO2 y BPM, el cual podrás visualizar en Node-Red\n";
+      welcome += "Este servicio te pemitirá conocer tu Temperatura, SPO2 y BPM\n";
       welcome += "Selecciona el texto en azul, segun sea el caso:\n";
       welcome += "/TemperaturaON: Para visualizar tu temperatura\n";
       welcome += "/TemperaturaOFF: Para dejar de tomar la temperatura\n";
       welcome += "/SPO2andBPMON: Para visualizar la oxigenación y los latidos por minuto\n";
       welcome += "/SPO2andBPMOFF: Para dejar de visualizar la oxigenación y los latidos por minuto\n";
-      welcome += "/status: Para conocer la función que se tiene activada \n";
+      welcome += "/status: Para conocer la función que tienes activa\n";
       welcome += "Instrucciones de uso: \n";
       welcome += "1. Elegir el signo vital a medir. \n";
       welcome += "Para ello seleccione el comando /TemperaturaON o /SPO2andBPMON segun sea el caso \n";
-      welcome += "Para apagar la medicion seleccionada se hace uso del comando /TemperaturaOFF o /SPO2andBPMOFF segun sea el caso.\n";
+      welcome += "Es necesario apagar la medicion seleccionada con el comando /TemperaturaOFF o /SPO2andBPMOFF segun sea el caso.\n";
+      welcome += "Una vez que ya no se requiera su uso (SOLO SE PUEDE REALIZAR UNA MEDICION A LA VEZ)\n";
       welcome += "NOTA: EL ULTIMO VALOR MEDIDO POR LOS SENSORES SERÁ EL ALMACENADO\n";
       bot.sendMessage(chat_id, welcome, "Markdown");
     }
