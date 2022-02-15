@@ -25,11 +25,8 @@ const unsigned long BOT_MTBS = 1000; // mean time between scan messages
 //---------------------------Conectividad---------------------------------------------------
 //Datos de WiFi
 
-/*const char* ssid = "MIRANDA" ;// Aquí debes poner el nombre de tu red
-const char* password = "369369-+0@@@@@";  // Aquí debes poner la contraseña de tu red*/
-
-const char* ssid = "Totalplay-559E" ;// Aquí debes poner el nombre de tu red
-const char* password = "559EB28CPBfPW9Vu";  // Aquí debes poner la contraseña de tu red
+const char* ssid = "*********" ;// Aquí debes poner el nombre de tu red
+const char* password = "*********";  // Aquí debes poner la contraseña de tu red
 
 //Datos del broker MQTT
 const char* mqtt_server = "3.65.154.195"; // Si estas en una red local, coloca la IP asignada, en caso contrario, coloca la IP publica
