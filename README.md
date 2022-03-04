@@ -26,6 +26,7 @@ Requisitos:
       •	MQTT.
 	  
    Software:
+   
       •	IDE Arduino.
 	  
       •	VirtualBox

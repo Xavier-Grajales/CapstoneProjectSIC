@@ -1,17 +1,17 @@
 /* Autores: Xavier Emmanuel Domínguez Grajales.
- *  Joselyn Martínez Miranada
+ *  Joselyn Martínez Miranda
  *  Carlos Mauricio García Garibay
  *  
  *  Fecha: 19 de Febrero de 2022
  *  
  *  Este programa realiza la lectura de los sensores MAX30102 y MLX90614
  *  para generar un sistema de monitoreo de salud para personas de la tercera edad, 
- *  que tiene la capacidad de enviar mensajes a node red por medio de MQTT y 
+ *  que tiene la capacidad de enviar mensajes a node red por medio de MQTT y +
  *  generar notificaciones en caso de encontrarse en situaciones de riesgo mediante 
  *  un chatbot de telegram. Para realizar este programa se utilizaron bibliotecas que
  *  facilitaron el trabajo con dichos sensores, la unica biblioteca no encontrada
  *  en arduino es la de DFRobot_MAX30102 para ello colocamos el repositorio en 
- *  donde es posible localizar la información https://github.com/DFRobot/DFRobot_MAX30102.
+ *  donde es posible localizar la información https://github.com/DFRobot/DFRobot_MAX30102
 */
 
 /*Conexion ESP32 y sensores
@@ -24,30 +24,31 @@
 
 /*Bibliotecas necesarias para la ejecución del programa*/
 #include <Wire.h>//Biblioteca que nos permite trabajar con  I2c
-#include <Adafruit_MLX90614.h>//Biblioteca que facilita el control del sensor mlx90614
+#include <Adafruit_MLX90614.h>//Biblioteca que facilita el control del sensor mlx90614:
 #include <WiFi.h>// Biblioteca para el control de WiFi
 #include <PubSubClient.h> //Biblioteca para conexion MQTT
 #include <DFRobot_MAX30102.h>//Biblioteca que facilita la uitlización del sensor MAX30102
 #include <WiFiClientSecure.h>//Biblioteca que permite la conectividad del Esp32 a wifi
 #include <UniversalTelegramBot.h>//Biblioteca que permite la conectividad del Esp32 con telegram
 
-#define BOT_TOKEN "5258227222:AAGgUY1lm-NdveRfCyDoH0YZjVJnZpxYLzI" // se obtiene al momento de crear el chat bot en telegram
-const unsigned long BOT_MTBS = 1000; // Tiempo medio entre mensajes escanedos
+#define BOT_TOKEN "Pega_tu_token" // se obtiene al momento de crear el chat bot en telegram es importante que coloques el de tu propio bot
+const unsigned long BOT_MTBS = 1000; // Tiempo medio entre mensajes escanedos por telegram
 
 
 //---------------------------Conectividad---------------------------------------------------
 //Datos de WiFi
 
-const char* ssid = "Redmi" ;// Aquí debes poner el nombre de tu red
-const char* password = "1234Ronaldo";  // Aquí debes poner la contraseña de tu red
+const char* ssid = "Nombre_de_tu_Red";// Aquí debes poner el nombre de tu red
+const char* password ="Contraseña_de_tu_Red";  // Aquí debes poner la contraseña de tu red
 
 //Datos del broker MQTT
-const char* mqtt_server = "3.126.191.185"; // Si estas en una red local, coloca la IP asignada, en caso contrario, coloca la IP publica
-IPAddress server(3,126,191,185);//En esta parte se coloca la IP separada por (,) en lugar de (.)
+const char* mqtt_server = "18.195.132.243"; // Si estas en una red local, coloca la IP asignada, en caso contrario, coloca la IP publica es importante verificar que esta IP se mantenga en caso con
+IPAddress server(18,195,132,243);//En esta parte se coloca la IP separada por (,) en lugar de (.)
 
 // Objetos
 WiFiClient espClient; // Este objeto maneja los datos de conexion WiFi
 PubSubClient client(espClient); // Este objeto maneja los datos de conexion al broker
+
 
 //-------------------Data sensors-----------------------------------------------------------------
 //Declaración del objeto.
@@ -56,12 +57,12 @@ DFRobot_MAX30102 particleSensor;  //reconocimiento de sensor
 
 //Variables sensor MLX90614
 float TempMed;//Variable que almacena el valor de la temperatura medida por el sensor
-const float error_temp=4.33;//variable que almacena el error que se ha obtenido de la realización de multiples pruebas.
+const float error_temp=3.33;//variable que almacena el error que se ha obtenido de la realización de multiples pruebas. 4.33
 float TempReal;//Variable que almacena el valor de la temperatura medida + el error que posee el sensor, el cual fue encontrado después de realizar múltiples pruebas
 
 // Variables sensor MAX30102{
-const int error_ox=33;//Error medido para la oxigenación después de la realización de las pruebas
-const int error_bpm=86;//Error medido para bpm después de la realización de las pruebas
+const int error_ox=3;//Error medido para la oxigenación después de la realización de las pruebas
+const int error_bpm=2;//Error medido para bpm después de la realización de las pruebas  86
 int32_t SPO2; //SPO2
 int32_t SPO2_real;//SPO2 medido después de realizar el promedio de varias muestras
 int8_t SPO2Valid; //Indicador para mostrar si el calculo de SPO2 es valido
@@ -93,32 +94,17 @@ unsigned long timeLast_MAX;// Variable de control de tiempo no bloqueante para e
 int numNewMessages;//variable auxiliar para saber si se hha enviado un nuevo mensaje
 String chat_id;//variable que permite que el envio de los mensajes se lleve acabo.
 
-
 /*-----------Sección de telegram---------------------------------------------------*/
 WiFiClientSecure secured_client;//definición del objeto
-UniversalTelegramBot bot(BOT_TOKEN, secured_client);
+UniversalTelegramBot bot(BOT_TOKEN, secured_client);//Permite la conexión con nuestro bot de manera segura-
 unsigned long bot_lasttime; // Variable que indica la ultima vez que se realizó el escaneo de mensajes
 /*-----------------Variables para comprobar status de telegram----------------*/
-int SPO2andBPMstatus=0;
-int temperaturaStatus=0;
+int SPO2andBPMstatus=0;//variable empleada para comprobar si la función del max30102 esta activa
+int temperaturaStatus=0;//variable empleada pára comprobar si la función del mlx90614 esta activa
 
 void setup() {
  Serial.begin(115200);//Inicialización del puerto serial en 115200 baudios
 
- /*Inicializamos el serial para el envio de datos del sensor max30102*/
-  /*while (!particleSensor.begin()) {
-    Serial.println("MAX30102 no ha sido encontrado");
-    delay(1000);
-  }*/
-
- //Se configura el sensor max30102 para su utilización.
-  particleSensor.sensorConfiguration(/*ledBrightness=*/50, /*sampleAverage=*/SAMPLEAVG_4, \
-                        /*ledMode=*/MODE_MULTILED, /*sampleRate=*/SAMPLERATE_100, \
-                        /*pulseWidth=*/PULSEWIDTH_411, /*adcRange=*/ADCRANGE_16384);
-
-  //configuración del mlx90614
-  mlx.begin(); //Se inicializa la comunicación I2C
-  
  //declaración de los pines que nos permitiran observar que se ha realizado la conexion a wifi.
  pinMode (flashLedPin, OUTPUT);
  pinMode (statusLedPin, OUTPUT);
@@ -151,6 +137,17 @@ void setup() {
   if (WiFi.status () > 0){
   digitalWrite (statusLedPin, LOW);
   }
+
+ /*Inicializamos el serial para el envio de datos del sensor max30102*/
+ particleSensor.begin();//se incializa el sensor max30102
+ 
+ //Se configura el sensor max30102 para su utilización.
+  particleSensor.sensorConfiguration(/*ledBrightness=*/50, /*sampleAverage=*/SAMPLEAVG_4, \
+                        /*ledMode=*/MODE_MULTILED, /*sampleRate=*/SAMPLERATE_100, \
+                        /*pulseWidth=*/PULSEWIDTH_411, /*adcRange=*/ADCRANGE_16384);
+
+  //configuración del mlx90614
+  mlx.begin(); //Se inicializa la comunicación I2C
   
   delay (1000); // Esta espera es solo una formalidad antes de iniciar la comunicación con el broker
 
@@ -187,11 +184,11 @@ void loop() {
 
   /*-----------------Looop de conexión TELEGRAM--------------------------------------------------*/
   //Esta parte es fundamental para el envio de mensajes en telegram, sin ella esto no sería posible.
-  if (millis() - bot_lasttime > BOT_MTBS)
-  {
-     numNewMessages = bot.getUpdates(bot.last_message_received + 1);//nos inidica si se ha recibido un mensaje
+  if (millis() - bot_lasttime > BOT_MTBS){
+ 
+    numNewMessages = bot.getUpdates(bot.last_message_received + 1);//nos inidica si se ha recibido un mensaje
 
-    while (numNewMessages) //mientras se recibe el mensaje se ejecuta la acción solicitada
+    while (numNewMessages)//mientras se recibe el mensaje se ejecuta la acción solicitad
     {
       Serial.println("got response");
       handleNewMessages(numNewMessages);
@@ -200,8 +197,11 @@ void loop() {
 
     bot_lasttime = millis();
   }
+
+  
 /*------------------------Rutina para llamar a las funciones de los sensores---------------------------------------------------*/
 int interruptor_sensores=0;//se utiliza esta variable como un interruptor para los sensores que nos permite utilizar la estructura switch-case
+
 
 /*-------------------------Sección de condicionales para la rutina de las funciones de los sensores----------------------------*/
 if(temperaturaStatus==1){
@@ -368,27 +368,33 @@ void MLX90614(){
     TempReal=TempMed+error_temp;//lectura tomando en cuenta el error   
     
    char dataString[8]; // Define una arreglo de caracteres para enviarlos por MQTT, especifica la longitud del mensaje en 8 caracteres
+   
+   //Sección que evita el ruido excesivo en el envío de datos es decir datos no reales.
    Serial.print(TempReal);
     if(TempReal<32 || TempReal>42.5 ){
       TempReal=0; 
     }
     Serial.println(chat_id);
     Serial.println(numNewMessages);
-    if(TempReal<36.5 && TempReal>32){
-      bot.sendMessage(chat_id, "PRECAUCIÓN: Temperatura BAJA", "");
-      bot.sendMessage(chat_id, "La temperatura es: " + String(TempReal)+" °C");
-      }
-    else if(TempReal>37.5){
-      bot.sendMessage(chat_id, "PRECAUCIÓN: Temperatura ALTA", "");
-      bot.sendMessage(chat_id, "La temperatura es: " + String(TempReal)+" °C");
-      }
+
 
     dtostrf(TempReal, 1, 2, dataString);  // Esta es una función nativa de leguaje AVR que convierte un arreglo de caracteres en una variable String
     Serial.print("La temperarura es: "); // Se imprime en monitor solo para poder visualizar que el evento sucede
     Serial.println(dataString);//imprime los datos string en el monitor serial
     Serial.println();//unicamente se imprime un espacio
     delay(1000);//se genera una espera no bloqueante para el envio de datos.
-    client.publish("SignosVitales/Temperatura/CasaRetiro1", dataString); // Esta es la función que envía los datos por MQTT, especifica el tema y el valor. Es importante cambiar el tema para que sea unico SignosVitales/Temperatura/casaRetiro1
+    client.publish("SignosVitales/Temperatura/CasaRetiro1", dataString); // Esta es la función que envía los datos por MQTT, especifica el tema y el valor. Es importante cambiar el tema para que sea unico en este caso el nuestro es SignosVitales/Temperatura/casaRetiro1, pero es necesario modificar esto en otros proyectos
+  
+    //Sección que permite el envío de los mensajes de alerta en el chatbot de telegram si se esta en los niveles preocupantes.
+    if(TempReal<36.5 && TempReal>32){
+      bot.sendMessage(chat_id, "PRECAUCIÓN: Temperatura BAJA\n", "");
+      bot.sendMessage(chat_id, "La temperatura es: " + String(TempReal)+" °C");
+      }
+    else if(TempReal>37.5){
+      bot.sendMessage(chat_id, "PRECAUCIÓN: Temperatura ALTA", "");
+      bot.sendMessage(chat_id, "La temperatura es: " + String(TempReal)+" °C");
+      }
+      
   }// fin del if (timeNow - timeLast > wait_mlx90614)  
 }
 
@@ -396,28 +402,33 @@ void MLX90614(){
 /*--------------------------------Función para el sensor max30102-------------------------------------------------------------------*/
 void MAX30102()
 {
- 
  if (timeNow_MAX - timeLast_MAX >wait_MAX) {// Manda un mensaje por MQTT cada 35 segundos
   timeLast_MAX=timeNow_MAX;
   particleSensor.heartrateAndOxygenSaturation(/**SPO2=*/&SPO2, /**SPO2Valid=*/&SPO2Valid, /**heartRate=*/&heartRate, /**heartRateValid=*/&heartRateValid);
-  char dataStringspo2[8];//variable utilizada para generar el string para el envio del spo2
-  char dataStringhb[8];//variable utilizada para generar el sting para el envio del bpm
-  oxt=SPO2+error_ox;//variable que almacena la medición del spo2+error para generar una lectura adecuada que se aproxima al valor real
-  bpmt=heartRate-error_bpm;//variable que almacena la medicion del bpm+error para generar una lectura adecuada que se aproxime al valor real.
+  char dataStringspo2[8];
+  char dataStringhb[8];
   //Esta sección nos ayuda a evitar un poco de ruido del sensor MAX30102
-/*  SPO2_real=SPO2+error_ox;
-  heartRate_real=heartRate-error_bpm;
- if(SPO2_real<0 || SPO2_real>100){
-   SPO2_real=0;
-    }
- if(heartRate_real<30 || heartRate_real>250){
-   heartRate_real=0;
-    }*/
-   //sección de impresiones en el monitor serial que nos permiten observar si la ejecución del programa se esta llevando a cabo
-   Serial.println(chat_id);
-   Serial.println(numNewMessages);
+  oxt=SPO2-error_ox;
+  bpmt=heartRate-error_bpm;
 
-   //Generamos el envio de notificaciones en telegram si las condiciones se cumplen
+ //Sección que evita el ruido excesivo en el envío de datos es decir datos no reales.
+ if(oxt<0 || oxt>100){
+    oxt=0;
+    }
+ if(bpmt<30 || bpmt>250){
+    bpmt=0;
+    }
+   
+  dtostrf(oxt, 1, 2, dataStringspo2);// Esta es una función nativa de leguaje AVR que convierte un arreglo de caracteres en una variable String para la ocigenación
+  dtostrf(bpmt, 1, 2, dataStringhb);// Esta es una función nativa de leguaje AVR que convierte un arreglo de caracteres en una variable String para el bpm
+  Serial.print("SPO2: "); // Se imprime en monitor solo para poder visualizar que el evento sucede
+  Serial.println(dataStringspo2);//imprime los datos string en el monitor serial del spo2
+  Serial.print("Bpm: "); // Se imprime en monitor solo para poder visualizar que el evento sucede
+  Serial.println(dataStringhb);//imprime los datos string en el monitor serial del bpm
+  client.publish("SignosVitales/Oxigenacion/CasaRetiro1", dataStringspo2); // Esta es la función que envía los datos por MQTT, especifica el tema y el valor. Es importante cambiar el tema para que sea unico en este caso el nuestro es SignosVitales/Oxigenacion/CasaRetiro1, pero es necesario modificar esto en otros proyectos
+  client.publish("SignosVitales/bpm/CasaRetiro1", dataStringhb);// Esta es la función que envía los datos por MQTT, especifica el tema y el valor. Es importante cambiar el tema para que sea unico en este caso el nuestro es SignosVitales/bpm/CasaRetiro1, pero es necesario modificar esto en otros proyectos
+ }
+//Sección que permite el envío de los mensajes de alerta en el chatbot de telegram si se esta en los niveles preocupantes.
     if(oxt<90 && oxt>0){//si el spo2 es menor a 90 entonces se envian el mensaje
       bot.sendMessage(chat_id, "PRECAUCIÓN: Oxigenacion BAJA", "");
       bot.sendMessage(chat_id, "La Oxigenacion es: " + String(oxt));
@@ -429,15 +440,6 @@ void MAX30102()
       bot.sendMessage(chat_id, "PRECAUCIÓN: BPM ALTA", "");
       bot.sendMessage(chat_id, "El BPM es:" + String(bpmt));
       }
-  dtostrf(oxt, 1, 2, dataStringspo2);//se genera el string para el envio del spo2
-  dtostrf(bpmt, 1, 2, dataStringhb);//se genera el string para el envio del bpm
-  Serial.print("SPO2: ");
-  Serial.println(dataStringspo2);//se imprime el string en el monitor serial para tener un mayor control de lo que esta sucediendo en el microcontrolador
-  Serial.print("Bpm: ");
-  Serial.println(dataStringhb);//se imprime el string del bpm para tener un control a través del monitor serial
-  client.publish("SignosVitales/Oxigenacion/CasaRetiro1", dataStringspo2);// Esta es la función que envía los datos por MQTT, especifica el tema y el valor. Es importante cambiar el tema para que sea unico SignosVitales/Oxigenación/CasaRetiro1
-  client.publish("SignosVitales/bpm/CasaRetiro1", dataStringhb);// Esta es la función que envía los datos por MQTT, especifica el tema y el valor. Es importante cambiar el tema para que sea unico SignosVitales/bpm/CasaRetiro1
- }
 }
 
 /*---------------------Sección de envío de mensaje telegram--------------------------*/
@@ -464,8 +466,7 @@ void handleNewMessages(int numNewMessages)
     {
       temperaturaStatus= 1;//cambia el status para la medición de temperatura
       Serial.print("temperaturaStatus= ");
-      Serial.println(temperaturaStatus);//
-      bot.sendMessage(chat_id, "Temperatura is ON", "");
+      Serial.println(temperaturaStatus);
     }
 
     //se apaga la función de medición de temperatura
@@ -474,7 +475,6 @@ void handleNewMessages(int numNewMessages)
       temperaturaStatus= 0;//cambia el status para la medición de temperatura
       Serial.print("temperaturaStatus= ");
       Serial.println(temperaturaStatus);
-      bot.sendMessage(chat_id, "Temperatura is OFF", "");
     }
     
     //se enciende la función de medición de bpm y spo2
@@ -483,7 +483,6 @@ void handleNewMessages(int numNewMessages)
       SPO2andBPMstatus= 1;//cambia el status para la medición de spo2 y bpm
       Serial.print("SPO2andBPMstatus= ");
       Serial.println(SPO2andBPMstatus);
-      bot.sendMessage(chat_id, "SPO2andBPMstatus is ON", "");
     }
     //se apaga la función de medición de bpm y spo2
     if (text == "/SPO2andBPMOFF")
@@ -491,7 +490,6 @@ void handleNewMessages(int numNewMessages)
       SPO2andBPMstatus= 0;//cambia el status para la medición del spo2 y bpm
       Serial.print("SPO2andBPMstatus= ");
       Serial.println(SPO2andBPMstatus);
-      bot.sendMessage(chat_id, "SPO2andBPMstatus is OFF", "");
     }//los status de las funciones son muy importantes porque en el programa principal loop mediante la estructura switch-case nos permite tener un control del sistema
 
     //Estructura de if´s-else´s para conocer el status de nuestros sensores
@@ -531,7 +529,7 @@ void handleNewMessages(int numNewMessages)
       welcome += "Para ello seleccione el comando /TemperaturaON o /SPO2andBPMON segun sea el caso \n";
       welcome += "Es necesario apagar la medicion seleccionada con el comando /TemperaturaOFF o /SPO2andBPMOFF segun sea el caso.\n";
       welcome += "Una vez que ya no se requiera su uso.\n";
-      welcome += "NOTA: EL ULTIMO VALOR MEDIDO POR LOS SENSORES SERÁ EL ALMACENADO\n";
+      welcome += "**NOTA:**EL ULTIMO VALOR MEDIDO POR LOS SENSORES SERÁ EL ALMACENADO \n";
       bot.sendMessage(chat_id, welcome, "Markdown");
     }
   }
