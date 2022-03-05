@@ -386,14 +386,16 @@ void MLX90614(){
     client.publish("SignosVitales/Temperatura/CasaRetiro1", dataString); // Esta es la función que envía los datos por MQTT, especifica el tema y el valor. Es importante cambiar el tema para que sea unico en este caso el nuestro es SignosVitales/Temperatura/casaRetiro1, pero es necesario modificar esto en otros proyectos
   
     //Sección que permite el envío de los mensajes de alerta en el chatbot de telegram si se esta en los niveles preocupantes.
-    if(TempReal<36.5 && TempReal>32){
-      bot.sendMessage(chat_id, "PRECAUCIÓN: Temperatura BAJA\n", "");
-      bot.sendMessage(chat_id, "La temperatura es: " + String(TempReal)+" °C");
-      }
-    else if(TempReal>37.5){
-      bot.sendMessage(chat_id, "PRECAUCIÓN: Temperatura ALTA", "");
-      bot.sendMessage(chat_id, "La temperatura es: " + String(TempReal)+" °C");
-      }
+    for (int j=1;j<=3;j++){//solo enviara los mensajes de alerta 3 veces en caso de que se presente una situación de riesgo
+      if(TempReal<36.5 && TempReal>32){
+        bot.sendMessage(chat_id, "PRECAUCIÓN: Temperatura BAJA\n", "");
+        bot.sendMessage(chat_id, "La temperatura es: " + String(TempReal)+" °C");
+        }
+      else if(TempReal>37.5){
+        bot.sendMessage(chat_id, "PRECAUCIÓN: Temperatura ALTA", "");
+        bot.sendMessage(chat_id, "La temperatura es: " + String(TempReal)+" °C");
+        }
+    }
       
   }// fin del if (timeNow - timeLast > wait_mlx90614)  
 }
@@ -429,6 +431,7 @@ void MAX30102()
   client.publish("SignosVitales/bpm/CasaRetiro1", dataStringhb);// Esta es la función que envía los datos por MQTT, especifica el tema y el valor. Es importante cambiar el tema para que sea unico en este caso el nuestro es SignosVitales/bpm/CasaRetiro1, pero es necesario modificar esto en otros proyectos
  }
 //Sección que permite el envío de los mensajes de alerta en el chatbot de telegram si se esta en los niveles preocupantes.
+   for (int j=1;j<=3;j++){//solo enviara los mensajes de alerta 3 veces en caso de que se presente una situación de riesgo
     if(oxt<90 && oxt>0){//si el spo2 es menor a 90 entonces se envian el mensaje
       bot.sendMessage(chat_id, "PRECAUCIÓN: Oxigenacion BAJA", "");
       bot.sendMessage(chat_id, "La Oxigenacion es: " + String(oxt));
@@ -440,6 +443,7 @@ void MAX30102()
       bot.sendMessage(chat_id, "PRECAUCIÓN: BPM ALTA", "");
       bot.sendMessage(chat_id, "El BPM es:" + String(bpmt));
       }
+   } 
 }
 
 /*---------------------Sección de envío de mensaje telegram--------------------------*/
